@@ -207,71 +207,59 @@ def _load_campus_image_data_uri():
     return None
 
 
-CAMPUS_ILLUSTRATION_SVG = f"""
-<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
-     style="width:100%; height:100%; display:block;">
-  <rect width="900" height="260" fill="url(#skyGrad)"/>
-  <defs>
-    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="{banner_bg_1}"/>
-      <stop offset="100%" stop-color="{banner_bg_2}"/>
-    </linearGradient>
-  </defs>
-  <ellipse cx="150" cy="230" rx="420" ry="60" fill="{PRIMARY}" opacity="0.10"/>
-  <ellipse cx="720" cy="245" rx="360" ry="50" fill="{ACCENT_WARM}" opacity="0.10"/>
-
-  <!-- college building -->
-  <g transform="translate(300,60)">
-    <rect x="0" y="70" width="300" height="110" fill="{PRIMARY}" opacity="0.85"/>
-    <polygon points="-20,70 150,10 320,70" fill="{PRIMARY_DARK}" opacity="0.9"/>
-    <rect x="130" y="30" width="40" height="40" fill="{banner_bg_1}"/>
-    <rect x="20" y="100" width="26" height="80" fill="{banner_bg_1}"/>
-    <rect x="60" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
-    <rect x="100" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
-    <rect x="174" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
-    <rect x="214" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
-    <rect x="254" y="100" width="26" height="80" fill="{banner_bg_1}"/>
-    <rect x="0" y="176" width="300" height="6" fill="{PRIMARY_DARK}"/>
-  </g>
-
-  <!-- trees, kept simple and calm -->
-  <g opacity="0.9">
-    <circle cx="220" cy="185" r="26" fill="{PRIMARY}"/>
-    <rect x="216" y="200" width="8" height="26" fill="{PRIMARY_DARK}"/>
-    <circle cx="700" cy="190" r="30" fill="{PRIMARY}"/>
-    <rect x="695" y="208" width="9" height="28" fill="{PRIMARY_DARK}"/>
-    <circle cx="760" cy="180" r="20" fill="{ACCENT_WARM}" opacity="0.7"/>
-    <rect x="757" y="194" width="6" height="22" fill="{PRIMARY_DARK}"/>
-  </g>
-</svg>
-"""
+CAMPUS_ILLUSTRATION_SVG = (
+    f'<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" '
+    f'preserveAspectRatio="xMidYMid slice" style="width:100%; height:100%; display:block;">'
+    f'<rect width="900" height="260" fill="url(#skyGrad)"/>'
+    f'<defs><linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">'
+    f'<stop offset="0%" stop-color="{banner_bg_1}"/>'
+    f'<stop offset="100%" stop-color="{banner_bg_2}"/>'
+    f'</linearGradient></defs>'
+    f'<ellipse cx="150" cy="230" rx="420" ry="60" fill="{PRIMARY}" opacity="0.10"/>'
+    f'<ellipse cx="720" cy="245" rx="360" ry="50" fill="{ACCENT_WARM}" opacity="0.10"/>'
+    f'<g transform="translate(300,60)">'
+    f'<rect x="0" y="70" width="300" height="110" fill="{PRIMARY}" opacity="0.85"/>'
+    f'<polygon points="-20,70 150,10 320,70" fill="{PRIMARY_DARK}" opacity="0.9"/>'
+    f'<rect x="130" y="30" width="40" height="40" fill="{banner_bg_1}"/>'
+    f'<rect x="20" y="100" width="26" height="80" fill="{banner_bg_1}"/>'
+    f'<rect x="60" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>'
+    f'<rect x="100" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>'
+    f'<rect x="174" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>'
+    f'<rect x="214" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>'
+    f'<rect x="254" y="100" width="26" height="80" fill="{banner_bg_1}"/>'
+    f'<rect x="0" y="176" width="300" height="6" fill="{PRIMARY_DARK}"/>'
+    f'</g>'
+    f'<g opacity="0.9">'
+    f'<circle cx="220" cy="185" r="26" fill="{PRIMARY}"/>'
+    f'<rect x="216" y="200" width="8" height="26" fill="{PRIMARY_DARK}"/>'
+    f'<circle cx="700" cy="190" r="30" fill="{PRIMARY}"/>'
+    f'<rect x="695" y="208" width="9" height="28" fill="{PRIMARY_DARK}"/>'
+    f'<circle cx="760" cy="180" r="20" fill="{ACCENT_WARM}" opacity="0.7"/>'
+    f'<rect x="757" y="194" width="6" height="22" fill="{PRIMARY_DARK}"/>'
+    f'</g>'
+    f'</svg>'
+)
 
 campus_image_uri = _load_campus_image_data_uri()
 
 if campus_image_uri:
     st.markdown(
-        f"""
-        <div class="campus-banner">
-            <img src="{campus_image_uri}" alt="Keshav Mahavidyalaya campus">
-            <div class="campus-banner-overlay">
-                <h1>Keshav Mahavidyalaya PG Finder</h1>
-                <p>Browse PGs near Pitampura and get a fair rent estimate.</p>
-            </div>
-        </div>
-        """,
+        f'<div class="campus-banner">'
+        f'<img src="{campus_image_uri}" alt="Keshav Mahavidyalaya campus">'
+        f'<div class="campus-banner-overlay">'
+        f'<h1>Keshav Mahavidyalaya PG Finder</h1>'
+        f'<p>Browse PGs near Pitampura and get a fair rent estimate.</p>'
+        f'</div></div>',
         unsafe_allow_html=True,
     )
 else:
     st.markdown(
-        f"""
-        <div class="campus-banner" style="height:200px;">
-            {CAMPUS_ILLUSTRATION_SVG}
-            <div class="campus-banner-overlay">
-                <h1>Keshav Mahavidyalaya PG Finder</h1>
-                <p>Browse PGs near Pitampura and get a fair rent estimate.</p>
-            </div>
-        </div>
-        """,
+        f'<div class="campus-banner" style="height:200px;">'
+        f'{CAMPUS_ILLUSTRATION_SVG}'
+        f'<div class="campus-banner-overlay">'
+        f'<h1>Keshav Mahavidyalaya PG Finder</h1>'
+        f'<p>Browse PGs near Pitampura and get a fair rent estimate.</p>'
+        f'</div></div>',
         unsafe_allow_html=True,
     )
 
