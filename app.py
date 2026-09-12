@@ -8,8 +8,13 @@ Run with:  streamlit run pg_finder_app.py
 """
 
 import math
+import base64
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
@@ -35,23 +40,30 @@ with st.sidebar:
     st.session_state.dark_mode = st.toggle("Dark mode", value=st.session_state.dark_mode)
 
 if st.session_state.dark_mode:
-    bg, card_bg, text_color, sub_text, border_color = "#121212", "#1e1e1e", "#e8e8e8", "#a0a0a0", "#2c2c2c"
+    bg, card_bg, text_color, sub_text, border_color = "#14161a", "#1d2024", "#e8e6e1", "#9a9690", "#2a2d32"
+    banner_bg_1, banner_bg_2 = "#1c2b27", "#20241c"
 else:
-    bg, card_bg, text_color, sub_text, border_color = "#fafafa", "#ffffff", "#212121", "#6b6b6b", "#e0e0e0"
+    bg, card_bg, text_color, sub_text, border_color = "#faf8f5", "#ffffff", "#26241f", "#726e66", "#e6e2da"
+    banner_bg_1, banner_bg_2 = "#eef3ee", "#f4efe6"
 
-PRIMARY = "#00796b"  # calm teal, Material-style accent
+PRIMARY = "#5b7f70"       # muted sage — calmer than a bright Material teal
+PRIMARY_DARK = "#3f5a4e"
+ACCENT_WARM = "#c98a58"   # warm terracotta accent, used sparingly
+
+# Soft, natural palette reused across all charts so they feel part of the same app
+CHART_PALETTE = ["#5b7f70", "#c98a58", "#8ea9c9", "#c97a72", "#a98fc9", "#9db17c"]
 
 st.markdown(
     f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
 
     html, body, [class*="css"] {{
-        font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif;
+        font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
     }}
 
     .stApp {{
@@ -59,19 +71,55 @@ st.markdown(
         color: {text_color};
     }}
 
+    /* ---- header banner ---- */
+    .campus-banner {{
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid {border_color};
+        margin-top: 0.6rem;
+        margin-bottom: 1.3rem;
+        background: linear-gradient(120deg, {banner_bg_1}, {banner_bg_2});
+    }}
+    .campus-banner img {{
+        width: 100%;
+        max-height: 260px;
+        object-fit: cover;
+        display: block;
+    }}
+    .campus-banner-overlay {{
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        padding: 0.9rem 1.3rem;
+        background: linear-gradient(to top, rgba(20,20,18,0.55), rgba(20,20,18,0));
+    }}
+    .campus-banner-overlay h1 {{
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin: 0;
+        color: #ffffff;
+        letter-spacing: 0.2px;
+    }}
+    .campus-banner-overlay p {{
+        margin: 0.15rem 0 0 0;
+        color: #f1efe9;
+        font-size: 0.88rem;
+        opacity: 0.92;
+    }}
+
     .page-title {{
-        padding: 1rem 0 0.4rem 0;
+        padding: 0 0 0.5rem 0;
         border-bottom: 1px solid {border_color};
         margin-bottom: 1.2rem;
     }}
     .page-title h1 {{
-        font-size: 1.5rem;
-        font-weight: 500;
+        font-size: 1.35rem;
+        font-weight: 600;
         margin: 0;
         color: {text_color};
     }}
     .page-title p {{
-        margin: 0.2rem 0 0.6rem 0;
+        margin: 0.25rem 0 0.6rem 0;
         color: {sub_text};
         font-size: 0.92rem;
     }}
@@ -79,47 +127,58 @@ st.markdown(
     .metric-card {{
         background: {card_bg};
         border: 1px solid {border_color};
-        border-radius: 10px;
-        padding: 0.8rem 1rem;
+        border-radius: 12px;
+        padding: 0.9rem 1rem;
         text-align: center;
     }}
-    .metric-card h3 {{ margin: 0; font-weight: 500; color: {text_color}; }}
-    .metric-card p {{ margin: 0; color: {sub_text}; font-size: 0.8rem; }}
+    .metric-card h3 {{ margin: 0; font-weight: 600; color: {PRIMARY_DARK}; }}
+    .metric-card p {{ margin: 0.15rem 0 0 0; color: {sub_text}; font-size: 0.78rem; letter-spacing: 0.2px; }}
 
     .pg-card {{
         background: {card_bg};
         border: 1px solid {border_color};
-        border-radius: 10px;
-        padding: 1rem 1.2rem;
-        margin-bottom: 0.9rem;
+        border-radius: 12px;
+        padding: 1.1rem 1.3rem;
+        margin-bottom: 1rem;
         color: {text_color};
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }}
     .chip {{
         display: inline-block;
-        padding: 2px 10px;
-        border-radius: 6px;
-        font-size: 0.75rem;
+        padding: 3px 11px;
+        border-radius: 20px;
+        font-size: 0.74rem;
         margin-right: 6px;
         margin-bottom: 4px;
         background: {border_color};
         color: {text_color};
         font-weight: 500;
     }}
-    .chip-verified {{ background: #dff0ea; color: #00695c; }}
-    .chip-lowrooms {{ background: #fbe9e7; color: #b71c1c; }}
-    .rent-tag {{ font-size: 1.1rem; font-weight: 500; color: {PRIMARY}; }}
+    .chip-verified {{ background: #e3ede6; color: #3f5a4e; }}
+    .chip-lowrooms {{ background: #f6e9dd; color: #9a5a2a; }}
+    .rent-tag {{ font-size: 1.12rem; font-weight: 600; color: {PRIMARY_DARK}; }}
     .review-box {{
         background: {bg};
         border: 1px solid {border_color};
-        border-radius: 8px;
-        padding: 0.5rem 0.8rem;
+        border-radius: 10px;
+        padding: 0.55rem 0.85rem;
         margin-bottom: 0.4rem;
         font-size: 0.86rem;
+    }}
+    .section-note {{
+        color: {sub_text};
+        font-size: 0.88rem;
+        margin-top: -0.4rem;
+        margin-bottom: 0.8rem;
     }}
 
     .stButton > button {{
         border-radius: 8px;
-        font-family: 'Roboto', sans-serif;
+        font-family: 'Inter', sans-serif;
+    }}
+
+    .stTabs [data-baseweb="tab"] {{
+        font-weight: 500;
     }}
     </style>
     """,
@@ -127,17 +186,94 @@ st.markdown(
 )
 
 # ============================================================
-# HEADER
+# HEADER — banner with campus image + title
 # ============================================================
-st.markdown(
+def _load_campus_image_data_uri():
     """
-    <div class="page-title">
-        <h1>Keshav Mahavidyalaya PG Finder</h1>
-        <p>Browse PGs near Pitampura and get a fair rent estimate.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+    Looks for a real campus photo dropped next to this script
+    (e.g. keshav_mahavidyalaya.jpg / .png). If present, it's used as
+    the banner. Otherwise we fall back to a calm, hand-drawn campus
+    illustration further below, so the app looks finished either way.
+    """
+    candidates = ["keshav_mahavidyalaya.jpg", "keshav_mahavidyalaya.jpeg",
+                  "keshav_mahavidyalaya.png", "campus_photo.jpg", "campus_photo.png"]
+    here = Path(__file__).resolve().parent
+    for name in candidates:
+        p = here / name
+        if p.exists():
+            mime = "image/png" if p.suffix.lower() == ".png" else "image/jpeg"
+            encoded = base64.b64encode(p.read_bytes()).decode()
+            return f"data:{mime};base64,{encoded}"
+    return None
+
+
+CAMPUS_ILLUSTRATION_SVG = f"""
+<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
+     style="width:100%; height:100%; display:block;">
+  <rect width="900" height="260" fill="url(#skyGrad)"/>
+  <defs>
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="{banner_bg_1}"/>
+      <stop offset="100%" stop-color="{banner_bg_2}"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="150" cy="230" rx="420" ry="60" fill="{PRIMARY}" opacity="0.10"/>
+  <ellipse cx="720" cy="245" rx="360" ry="50" fill="{ACCENT_WARM}" opacity="0.10"/>
+
+  <!-- college building -->
+  <g transform="translate(300,60)">
+    <rect x="0" y="70" width="300" height="110" fill="{PRIMARY}" opacity="0.85"/>
+    <polygon points="-20,70 150,10 320,70" fill="{PRIMARY_DARK}" opacity="0.9"/>
+    <rect x="130" y="30" width="40" height="40" fill="{banner_bg_1}"/>
+    <rect x="20" y="100" width="26" height="80" fill="{banner_bg_1}"/>
+    <rect x="60" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
+    <rect x="100" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
+    <rect x="174" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
+    <rect x="214" y="100" width="26" height="45" fill="{banner_bg_1}" opacity="0.9"/>
+    <rect x="254" y="100" width="26" height="80" fill="{banner_bg_1}"/>
+    <rect x="0" y="176" width="300" height="6" fill="{PRIMARY_DARK}"/>
+  </g>
+
+  <!-- trees, kept simple and calm -->
+  <g opacity="0.9">
+    <circle cx="220" cy="185" r="26" fill="{PRIMARY}"/>
+    <rect x="216" y="200" width="8" height="26" fill="{PRIMARY_DARK}"/>
+    <circle cx="700" cy="190" r="30" fill="{PRIMARY}"/>
+    <rect x="695" y="208" width="9" height="28" fill="{PRIMARY_DARK}"/>
+    <circle cx="760" cy="180" r="20" fill="{ACCENT_WARM}" opacity="0.7"/>
+    <rect x="757" y="194" width="6" height="22" fill="{PRIMARY_DARK}"/>
+  </g>
+</svg>
+"""
+
+campus_image_uri = _load_campus_image_data_uri()
+
+if campus_image_uri:
+    st.markdown(
+        f"""
+        <div class="campus-banner">
+            <img src="{campus_image_uri}" alt="Keshav Mahavidyalaya campus">
+            <div class="campus-banner-overlay">
+                <h1>Keshav Mahavidyalaya PG Finder</h1>
+                <p>Browse PGs near Pitampura and get a fair rent estimate.</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        f"""
+        <div class="campus-banner" style="height:200px;">
+            {CAMPUS_ILLUSTRATION_SVG}
+            <div class="campus-banner-overlay">
+                <h1>Keshav Mahavidyalaya PG Finder</h1>
+                <p>Browse PGs near Pitampura and get a fair rent estimate.</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ============================================================
 # MOCK PG DATABASE
@@ -348,9 +484,19 @@ st.write("")
 # ============================================================
 # MAIN TABS
 # ============================================================
-tab_estimator, tab_browse, tab_compare, tab_map, tab_fav, tab_faq = st.tabs(
-    ["Rent Estimator", "Browse PGs", "Compare", "Map", "Favourites", "FAQ"]
+tab_estimator, tab_browse, tab_compare, tab_charts, tab_map, tab_fav, tab_faq = st.tabs(
+    ["Rent Estimator", "Browse PGs", "Compare", "Charts", "Map", "Favourites", "FAQ"]
 )
+
+# Shared, calm chart styling so every figure in the "Charts" tab matches the app
+PLOTLY_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Inter, sans-serif", color=text_color, size=13),
+    margin=dict(l=10, r=10, t=40, b=10),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+)
+GRID_COLOR = border_color
 
 # ------------------------------------------------------------
 # TAB — RENT ESTIMATOR
@@ -540,6 +686,126 @@ with tab_compare:
         if st.button("Clear comparison"):
             st.session_state.compare_list = []
             st.rerun()
+
+# ------------------------------------------------------------
+# TAB — CHARTS
+# ------------------------------------------------------------
+with tab_charts:
+    st.subheader("Compare PGs at a glance")
+    st.markdown(
+        '<p class="section-note">These charts reflect your current filters from the sidebar, '
+        "so they update as you narrow down your search.</p>",
+        unsafe_allow_html=True,
+    )
+
+    if filtered_df.empty:
+        st.warning("No PGs match your current filters, so there's nothing to chart yet. Try widening your search.")
+    else:
+        chart_df = filtered_df.sort_values("Monthly Rent (₹)")
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            st.markdown("**Monthly rent by PG**")
+            fig_rent = px.bar(
+                chart_df,
+                x="Monthly Rent (₹)",
+                y="PG Name",
+                orientation="h",
+                color="Area",
+                color_discrete_sequence=CHART_PALETTE,
+            )
+            fig_rent.update_layout(**PLOTLY_LAYOUT, height=max(320, 34 * len(chart_df)), showlegend=True)
+            fig_rent.update_xaxes(gridcolor=GRID_COLOR, title="₹ / month")
+            fig_rent.update_yaxes(title="", gridcolor=GRID_COLOR)
+            st.plotly_chart(fig_rent, use_container_width=True)
+
+        with c2:
+            st.markdown("**Rent vs. distance from college**")
+            fig_scatter = px.scatter(
+                filtered_df,
+                x="Distance (km)",
+                y="Monthly Rent (₹)",
+                color="Area",
+                size="Rating",
+                hover_name="PG Name",
+                color_discrete_sequence=CHART_PALETTE,
+            )
+            fig_scatter.update_layout(**PLOTLY_LAYOUT, height=max(320, 34 * len(chart_df)))
+            fig_scatter.update_xaxes(gridcolor=GRID_COLOR, title="Distance (km)")
+            fig_scatter.update_yaxes(gridcolor=GRID_COLOR, title="₹ / month")
+            st.plotly_chart(fig_scatter, use_container_width=True)
+
+        c3, c4 = st.columns(2)
+
+        with c3:
+            st.markdown("**Average rent by area**")
+            area_avg = filtered_df.groupby("Area", as_index=False)["Monthly Rent (₹)"].mean()
+            fig_area = px.bar(
+                area_avg.sort_values("Monthly Rent (₹)"),
+                x="Area",
+                y="Monthly Rent (₹)",
+                color="Area",
+                color_discrete_sequence=CHART_PALETTE,
+            )
+            fig_area.update_layout(**PLOTLY_LAYOUT, height=320, showlegend=False)
+            fig_area.update_xaxes(title="")
+            fig_area.update_yaxes(gridcolor=GRID_COLOR, title="Avg. ₹ / month")
+            st.plotly_chart(fig_area, use_container_width=True)
+
+        with c4:
+            st.markdown("**How well-reviewed are these PGs?**")
+            fig_rating = px.bar(
+                chart_df.sort_values("Rating"),
+                x="Rating",
+                y="PG Name",
+                orientation="h",
+                color="Verified",
+                color_discrete_map={True: PRIMARY, False: ACCENT_WARM},
+            )
+            fig_rating.update_layout(**PLOTLY_LAYOUT, height=max(320, 34 * len(chart_df)))
+            fig_rating.update_xaxes(gridcolor=GRID_COLOR, title="Rating (out of 5)", range=[0, 5])
+            fig_rating.update_yaxes(title="")
+            st.plotly_chart(fig_rating, use_container_width=True)
+
+        st.markdown("**Amenities available across matching PGs**")
+        amenity_cols = ["Food Included", "AC", "WiFi", "Laundry", "Parking"]
+        amenity_share = (
+            filtered_df[amenity_cols].mean().mul(100).round(0).reset_index()
+        )
+        amenity_share.columns = ["Amenity", "Share of listings (%)"]
+        fig_amenities = px.bar(
+            amenity_share.sort_values("Share of listings (%)"),
+            x="Share of listings (%)",
+            y="Amenity",
+            orientation="h",
+            color_discrete_sequence=[PRIMARY],
+        )
+        fig_amenities.update_traces(marker_color=PRIMARY)
+        fig_amenities.update_layout(**PLOTLY_LAYOUT, height=280, showlegend=False)
+        fig_amenities.update_xaxes(gridcolor=GRID_COLOR, title="% of matching PGs", range=[0, 100])
+        fig_amenities.update_yaxes(title="")
+        st.plotly_chart(fig_amenities, use_container_width=True)
+
+        if st.session_state.compare_list:
+            st.divider()
+            st.markdown("**Your shortlist, side by side**")
+            shortlist_df = pg_database[pg_database["PG Name"].isin(st.session_state.compare_list)]
+            fig_shortlist = go.Figure()
+            fig_shortlist.add_trace(go.Bar(
+                name="Monthly Rent (₹)", x=shortlist_df["PG Name"], y=shortlist_df["Monthly Rent (₹)"],
+                marker_color=PRIMARY,
+            ))
+            fig_shortlist.add_trace(go.Bar(
+                name="Security Deposit (₹)", x=shortlist_df["PG Name"], y=shortlist_df["Security Deposit"],
+                marker_color=ACCENT_WARM,
+            ))
+            fig_shortlist.update_layout(**PLOTLY_LAYOUT, barmode="group", height=340)
+            fig_shortlist.update_xaxes(title="")
+            fig_shortlist.update_yaxes(gridcolor=GRID_COLOR, title="₹")
+            st.plotly_chart(fig_shortlist, use_container_width=True)
+        else:
+            st.caption("Tip: add PGs to your shortlist from 'Browse PGs' to see a rent-vs-deposit comparison here.")
 
 # ------------------------------------------------------------
 # TAB — MAP
