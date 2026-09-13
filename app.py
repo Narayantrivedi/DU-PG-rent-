@@ -4,11 +4,16 @@ Keshav Mahavidyalaya PG Finder & Rent Estimator
 A calm, Android-style Streamlit app to browse PG (paying-guest) listings
 around Pitampura / Keshav Mahavidyalaya and estimate a fair monthly rent.
 
+Files needed in the same folder:
+    pg_finder_app.py   (this file)
+    campus.jpg         (campus photo — optional, app still runs without it)
+
 Run with:  streamlit run pg_finder_app.py
 """
 
 import os
 import math
+import hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -26,8 +31,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-
-
 # ============================================================
 # THEME
 # ============================================================
@@ -40,9 +43,10 @@ with st.sidebar:
 if st.session_state.dark_mode:
     bg, card_bg, text_color, sub_text, border_color = "#121212", "#1e1e1e", "#e8e8e8", "#a0a0a0", "#2c2c2c"
 else:
-    bg, card_bg, text_color, sub_text, border_color = "#fafafa", "#ffffff", "#212121", "#6b6b6b", "#e0e0e0"
+    bg, card_bg, text_color, sub_text, border_color = "#fafafa", "#ffffff", "#212121", "#6b6b6b", "#e5e5e5"
 
 PRIMARY = "#00796b"  # calm teal, Material-style accent
+PRIMARY_SOFT = "#e0f2ef"
 
 st.markdown(
     f"""
@@ -62,71 +66,107 @@ st.markdown(
         color: {text_color};
     }}
 
+    .block-container {{
+        max-width: 1100px;
+        padding-top: 1.2rem;
+    }}
+
     .page-title {{
         padding: 0.2rem 0 0.4rem 0;
         margin-bottom: 0;
     }}
     .page-title h1 {{
-        font-size: 1.5rem;
+        font-size: 1.55rem;
         font-weight: 500;
         margin: 0;
         color: {text_color};
+        letter-spacing: -0.01em;
     }}
     .page-title p {{
-        margin: 0.2rem 0 0.6rem 0;
+        margin: 0.25rem 0 0.6rem 0;
         color: {sub_text};
         font-size: 0.92rem;
     }}
     .header-wrap {{
         border-bottom: 1px solid {border_color};
-        margin-bottom: 1.2rem;
-        padding-bottom: 0.8rem;
+        margin-bottom: 1.3rem;
+        padding-bottom: 1rem;
+    }}
+    .header-wrap img {{
+        border-radius: 10px;
     }}
 
     .metric-card {{
         background: {card_bg};
         border: 1px solid {border_color};
-        border-radius: 10px;
-        padding: 0.8rem 1rem;
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
         text-align: center;
+        transition: box-shadow 0.15s ease;
     }}
-    .metric-card h3 {{ margin: 0; font-weight: 500; color: {text_color}; }}
-    .metric-card p {{ margin: 0; color: {sub_text}; font-size: 0.8rem; }}
+    .metric-card:hover {{ box-shadow: 0 2px 10px rgba(0,0,0,0.06); }}
+    .metric-card h3 {{ margin: 0; font-weight: 500; color: {text_color}; font-size: 1.15rem; }}
+    .metric-card p {{ margin: 0.15rem 0 0 0; color: {sub_text}; font-size: 0.78rem; }}
 
     .pg-card {{
         background: {card_bg};
         border: 1px solid {border_color};
-        border-radius: 10px;
-        padding: 1rem 1.2rem;
-        margin-bottom: 0.9rem;
+        border-radius: 12px;
+        padding: 1.1rem 1.3rem;
+        margin-bottom: 1rem;
         color: {text_color};
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }}
+    .pg-card:hover {{
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        border-color: {PRIMARY};
     }}
     .chip {{
         display: inline-block;
-        padding: 2px 10px;
-        border-radius: 6px;
-        font-size: 0.75rem;
+        padding: 3px 11px;
+        border-radius: 999px;
+        font-size: 0.74rem;
         margin-right: 6px;
         margin-bottom: 4px;
         background: {border_color};
         color: {text_color};
         font-weight: 500;
     }}
-    .chip-verified {{ background: #dff0ea; color: #00695c; }}
+    .chip-verified {{ background: {PRIMARY_SOFT}; color: #00695c; }}
     .chip-lowrooms {{ background: #fbe9e7; color: #b71c1c; }}
-    .rent-tag {{ font-size: 1.1rem; font-weight: 500; color: {PRIMARY}; }}
+    .rent-tag {{ font-size: 1.15rem; font-weight: 600; color: {PRIMARY}; }}
+    .deposit-tag {{ font-size: 0.85rem; color: {sub_text}; }}
     .review-box {{
         background: {bg};
         border: 1px solid {border_color};
         border-radius: 8px;
-        padding: 0.5rem 0.8rem;
+        padding: 0.55rem 0.85rem;
         margin-bottom: 0.4rem;
         font-size: 0.86rem;
+    }}
+    .section-note {{
+        color: {sub_text};
+        font-size: 0.85rem;
+        margin-top: -0.3rem;
+        margin-bottom: 0.6rem;
+    }}
+    .empty-state {{
+        text-align: center;
+        padding: 2.2rem 1rem;
+        color: {sub_text};
     }}
 
     .stButton > button {{
         border-radius: 8px;
         font-family: 'Roboto', sans-serif;
+        transition: transform 0.08s ease;
+    }}
+    .stButton > button:active {{ transform: scale(0.97); }}
+
+    .stTabs [data-baseweb="tab-list"] {{ gap: 4px; }}
+    .stTabs [data-baseweb="tab"] {{
+        border-radius: 8px 8px 0 0;
+        font-weight: 500;
     }}
     </style>
     """,
@@ -134,15 +174,23 @@ st.markdown(
 )
 
 # ============================================================
-# HEADER (with embedded campus photo)
+# HEADER (campus photo, loaded safely — app still works without it)
 # ============================================================
+def load_campus_image_path():
+    candidate = os.path.join(os.path.dirname(os.path.abspath(__file__)), "campus.jpg")
+    return candidate if os.path.exists(candidate) else None
+
+
 st.markdown('<div class="header-wrap">', unsafe_allow_html=True)
 header_col1, header_col2 = st.columns([1, 2.4])
 
 with header_col1:
-    campus_photo_path = os.path.join(os.path.dirname(__file__), "campus.jpg")
-    if os.path.exists(campus_photo_path):
-        st.image(campus_photo_path, use_container_width=True)
+    campus_path = load_campus_image_path()
+    if campus_path:
+        try:
+            st.image(campus_path, use_container_width=True)
+        except Exception:
+            st.caption("Campus photo could not be loaded.")
     else:
         st.caption("Place a 'campus.jpg' file next to this script to show the campus photo here.")
 
@@ -245,7 +293,8 @@ def train_rent_model():
     return model, feature_cols, metrics, importances
 
 
-rent_model, feature_cols, model_metrics, feature_importances = train_rent_model()
+with st.spinner("Preparing the rent model..."):
+    rent_model, feature_cols, model_metrics, feature_importances = train_rent_model()
 
 
 def predict_rent(distance, sharing, ac, food, wifi, laundry, area):
@@ -264,34 +313,57 @@ def predict_rent(distance, sharing, ac, food, wifi, laundry, area):
 
 
 # ============================================================
-# SIDEBAR — FILTERS
+# SIDEBAR — FILTERS (grouped into sections)
 # ============================================================
 st.sidebar.header("Filter PGs")
 
-search_term = st.sidebar.text_input("Search by PG name")
-selected_hub = st.sidebar.selectbox("Preferred Area", ["All Hubs"] + sorted(pg_database["Area"].unique()))
-gender_policy = st.sidebar.selectbox("Gender Policy", ["All", "Boys Only", "Girls Only", "Co-ed"])
-sharing_filter = st.sidebar.multiselect("Sharing Type", options=["Single", "Double", "Triple"], default=[])
+search_term = st.sidebar.text_input("Search by PG name", placeholder="e.g. Aggarwal PG")
 
-col_a, col_b = st.sidebar.columns(2)
-with col_a:
-    food_incl = st.checkbox("Food", value=False)
-    wifi_only = st.checkbox("WiFi", value=False)
-with col_b:
-    ac_only = st.checkbox("AC", value=False)
-    laundry_only = st.checkbox("Laundry", value=False)
+FILTER_WIDGET_KEYS = [
+    "search_term", "selected_hub", "gender_policy", "sharing_filter",
+    "food_incl", "wifi_only", "ac_only", "laundry_only", "verified_only", "available_only",
+    "budget_range", "max_distance", "min_rating", "sort_by",
+]
 
-verified_only = st.sidebar.checkbox("Verified listings only", value=False)
-available_only = st.sidebar.checkbox("Rooms currently available", value=False)
+if st.sidebar.button("Reset all filters"):
+    for key in FILTER_WIDGET_KEYS:
+        st.session_state.pop(key, None)
+    st.rerun()
 
-min_rent, max_rent = int(pg_database["Monthly Rent (₹)"].min()), int(pg_database["Monthly Rent (₹)"].max())
-budget_range = st.sidebar.slider("Budget Range (₹ / month)", min_rent, max_rent, (min_rent, max_rent), step=100)
-max_distance = st.sidebar.slider("Max distance from college (km)", 0.1, 4.0, 4.0, 0.1)
-min_rating = st.sidebar.slider("Minimum rating", 0.0, 5.0, 0.0, 0.1)
+search_term = st.sidebar.text_input("Search by PG name", placeholder="e.g. Aggarwal PG", key="search_term")
+
+with st.sidebar.expander("Location & type", expanded=True):
+    selected_hub = st.selectbox(
+        "Preferred Area", ["All Hubs"] + sorted(pg_database["Area"].unique()), key="selected_hub"
+    )
+    gender_policy = st.selectbox("Gender Policy", ["All", "Boys Only", "Girls Only", "Co-ed"], key="gender_policy")
+    sharing_filter = st.multiselect(
+        "Sharing Type", options=["Single", "Double", "Triple"], default=[], key="sharing_filter"
+    )
+
+with st.sidebar.expander("Amenities", expanded=False):
+    col_a, col_b = st.columns(2)
+    with col_a:
+        food_incl = st.checkbox("Food", value=False, key="food_incl")
+        wifi_only = st.checkbox("WiFi", value=False, key="wifi_only")
+    with col_b:
+        ac_only = st.checkbox("AC", value=False, key="ac_only")
+        laundry_only = st.checkbox("Laundry", value=False, key="laundry_only")
+    verified_only = st.checkbox("Verified listings only", value=False, key="verified_only")
+    available_only = st.checkbox("Rooms currently available", value=False, key="available_only")
+
+with st.sidebar.expander("Budget & distance", expanded=True):
+    min_rent, max_rent = int(pg_database["Monthly Rent (₹)"].min()), int(pg_database["Monthly Rent (₹)"].max())
+    budget_range = st.slider(
+        "Budget Range (₹ / month)", min_rent, max_rent, (min_rent, max_rent), step=100, key="budget_range"
+    )
+    max_distance = st.slider("Max distance from college (km)", 0.1, 4.0, 4.0, 0.1, key="max_distance")
+    min_rating = st.slider("Minimum rating", 0.0, 5.0, 0.0, 0.1, key="min_rating")
 
 sort_by = st.sidebar.selectbox(
     "Sort listings by",
     ["Distance (nearest first)", "Rent (lowest first)", "Rent (highest first)", "Rating (highest first)"],
+    key="sort_by",
 )
 
 # ============================================================
@@ -339,7 +411,7 @@ sort_col, ascending = sort_map[sort_by]
 filtered_df = filtered_df.sort_values(sort_col, ascending=ascending).reset_index(drop=True)
 
 # ============================================================
-# SESSION STATE
+# SESSION STATE (with automatic pagination reset when filters change)
 # ============================================================
 if "favourites" not in st.session_state:
     st.session_state.favourites = set()
@@ -347,8 +419,22 @@ if "compare_list" not in st.session_state:
     st.session_state.compare_list = []
 if "page" not in st.session_state:
     st.session_state.page = 1
+if "last_filter_signature" not in st.session_state:
+    st.session_state.last_filter_signature = None
 
 PAGE_SIZE = 5
+
+filter_signature = hashlib.md5(
+    "|".join(map(str, [
+        search_term, selected_hub, gender_policy, sorted(sharing_filter),
+        food_incl, wifi_only, ac_only, laundry_only, verified_only, available_only,
+        budget_range, max_distance, min_rating, sort_by,
+    ])).encode()
+).hexdigest()
+
+if filter_signature != st.session_state.last_filter_signature:
+    st.session_state.page = 1
+    st.session_state.last_filter_signature = filter_signature
 
 # ============================================================
 # TOP METRICS
@@ -378,22 +464,26 @@ tab_estimator, tab_browse, tab_compare, tab_map, tab_insights, tab_fav, tab_faq 
 # ------------------------------------------------------------
 with tab_estimator:
     st.subheader("Estimate a fair monthly rent")
-    st.write("Enter the details below to get a rent estimate based on nearby listings.")
+    st.markdown(
+        '<p class="section-note">Enter the details below to get a rent estimate based on nearby listings.</p>',
+        unsafe_allow_html=True,
+    )
 
     col1, col2, col3 = st.columns(3)
     with col1:
         dist_input = st.slider("Distance from college (km)", 0.1, 4.0, 1.0, 0.1)
-        area_input = st.selectbox("Area", sorted(pg_database["Area"].unique()))
+        area_input = st.selectbox("Area", sorted(pg_database["Area"].unique()), key="est_area")
     with col2:
         sharing_input = st.selectbox(
             "Sharing Type", options=[1, 2, 3],
             format_func=lambda x: {1: "Single", 2: "Double", 3: "Triple"}[x],
+            key="est_sharing",
         )
-        ac_input = st.radio("AC?", ["Yes", "No"], horizontal=True)
+        ac_input = st.radio("AC?", ["Yes", "No"], horizontal=True, key="est_ac")
     with col3:
-        food_input = st.radio("Food?", ["Yes", "No"], horizontal=True)
-        wifi_input = st.radio("WiFi?", ["Yes", "No"], horizontal=True)
-    laundry_input = st.checkbox("Laundry service included", value=False)
+        food_input = st.radio("Food?", ["Yes", "No"], horizontal=True, key="est_food")
+        wifi_input = st.radio("WiFi?", ["Yes", "No"], horizontal=True, key="est_wifi")
+    laundry_input = st.checkbox("Laundry service included", value=False, key="est_laundry")
 
     if st.button("Estimate rent", type="primary"):
         pred = predict_rent(
@@ -439,15 +529,24 @@ with tab_browse:
     st.subheader("Available listings near college")
 
     if filtered_df.empty:
-        st.warning("No PGs match your current filters. Try widening your budget or removing a filter.")
+        st.markdown(
+            '<div class="empty-state">No PGs match your current filters.<br>'
+            'Try widening your budget, increasing the distance, or clearing an amenity filter.</div>',
+            unsafe_allow_html=True,
+        )
     else:
-        csv = filtered_df.drop(columns=["Lat", "Lon", "Sharing Options"]).to_csv(index=False).encode("utf-8")
-        st.download_button("Download results as CSV", data=csv, file_name="km_pg_listings.csv", mime="text/csv")
+        top_bar_l, top_bar_r = st.columns([3, 1])
+        with top_bar_l:
+            total_pages = max(1, math.ceil(len(filtered_df) / PAGE_SIZE))
+            st.session_state.page = min(st.session_state.page, total_pages)
+            start = (st.session_state.page - 1) * PAGE_SIZE
+            end = min(start + PAGE_SIZE, len(filtered_df))
+            st.caption(f"Showing {start + 1}–{end} of {len(filtered_df)} listings")
+        with top_bar_r:
+            csv = filtered_df.drop(columns=["Lat", "Lon", "Sharing Options"]).to_csv(index=False).encode("utf-8")
+            st.download_button("Download CSV", data=csv, file_name="km_pg_listings.csv", mime="text/csv")
 
-        total_pages = max(1, math.ceil(len(filtered_df) / PAGE_SIZE))
-        st.session_state.page = min(st.session_state.page, total_pages)
-        start = (st.session_state.page - 1) * PAGE_SIZE
-        page_df = filtered_df.iloc[start:start + PAGE_SIZE]
+        page_df = filtered_df.iloc[start:end]
 
         for _, row in page_df.iterrows():
             is_fav = row["PG Name"] in st.session_state.favourites
@@ -473,9 +572,11 @@ with tab_browse:
                         f'{verified_badge}{low_rooms_badge}',
                         unsafe_allow_html=True,
                     )
-                    st.markdown(f'<span class="rent-tag">₹{row["Monthly Rent (₹)"]:,} / month</span>'
-                                f' &nbsp; <span style="font-size:0.85rem;">+ ₹{row["Security Deposit"]:,} deposit</span>',
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        f'<span class="rent-tag">₹{row["Monthly Rent (₹)"]:,} / month</span>'
+                        f' &nbsp; <span class="deposit-tag">+ ₹{row["Security Deposit"]:,} deposit</span>',
+                        unsafe_allow_html=True,
+                    )
                     amenities = []
                     if row["AC"]:
                         amenities.append("AC")
@@ -489,10 +590,7 @@ with tab_browse:
                         amenities.append("Parking")
                     st.caption((", ".join(amenities) if amenities else "Basic amenities")
                                + f"  ·  Curfew: {row['Curfew']}")
-                    if sold_out:
-                        st.caption("No rooms currently available")
-                    else:
-                        st.caption(f"{row['Rooms Available']} room(s) available")
+                    st.caption("No rooms currently available" if sold_out else f"{row['Rooms Available']} room(s) available")
 
                     with st.expander("Reviews"):
                         for reviewer, stars, text in SAMPLE_REVIEWS:
@@ -503,7 +601,7 @@ with tab_browse:
 
                 with action_col:
                     fav_label = "Unsave" if is_fav else "Save"
-                    if st.button(fav_label, key=f"fav_{row['PG Name']}"):
+                    if st.button(fav_label, key=f"fav_{row['PG Name']}", use_container_width=True):
                         if is_fav:
                             st.session_state.favourites.discard(row["PG Name"])
                         else:
@@ -512,7 +610,7 @@ with tab_browse:
 
                     compare_label = "Remove" if in_compare else "Compare"
                     disabled_compare = (not in_compare) and len(st.session_state.compare_list) >= 3
-                    if st.button(compare_label, key=f"cmp_{row['PG Name']}", disabled=disabled_compare):
+                    if st.button(compare_label, key=f"cmp_{row['PG Name']}", disabled=disabled_compare, use_container_width=True):
                         if in_compare:
                             st.session_state.compare_list.remove(row["PG Name"])
                         else:
@@ -521,29 +619,39 @@ with tab_browse:
 
                     with st.expander("Enquire"):
                         with st.form(key=f"enquire_{row['PG Name']}"):
-                            st.text_input("Your name", key=f"name_{row['PG Name']}")
-                            st.text_input("Your phone", key=f"phone_{row['PG Name']}")
-                            st.text_area("Message", value=f"Hi, I'm interested in {row['PG Name']}.",
-                                         key=f"msg_{row['PG Name']}")
+                            name = st.text_input("Your name", key=f"name_{row['PG Name']}")
+                            phone = st.text_input("Your phone", key=f"phone_{row['PG Name']}")
+                            st.text_area(
+                                "Message", value=f"Hi, I'm interested in {row['PG Name']}.",
+                                key=f"msg_{row['PG Name']}",
+                            )
                             submitted = st.form_submit_button("Send enquiry")
                             if submitted:
-                                st.success(f"Noted. {row['Owner']} can be reached at {row['Contact']} "
-                                           f"(demo only — no message is actually sent).")
+                                if not name.strip() or not phone.strip():
+                                    st.warning("Please enter your name and phone number before sending.")
+                                else:
+                                    st.success(
+                                        f"Noted. {row['Owner']} can be reached at {row['Contact']} "
+                                        f"(demo only — no message is actually sent)."
+                                    )
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        nav1, nav2, nav3 = st.columns([1, 2, 1])
-        with nav1:
-            if st.button("Previous", disabled=st.session_state.page <= 1):
-                st.session_state.page -= 1
-                st.rerun()
-        with nav2:
-            st.markdown(f"<div style='text-align:center;'>Page {st.session_state.page} of {total_pages}</div>",
-                        unsafe_allow_html=True)
-        with nav3:
-            if st.button("Next", disabled=st.session_state.page >= total_pages):
-                st.session_state.page += 1
-                st.rerun()
+        if total_pages > 1:
+            nav1, nav2, nav3 = st.columns([1, 2, 1])
+            with nav1:
+                if st.button("Previous", disabled=st.session_state.page <= 1, use_container_width=True):
+                    st.session_state.page -= 1
+                    st.rerun()
+            with nav2:
+                st.markdown(
+                    f"<div style='text-align:center; padding-top:0.4rem;'>Page {st.session_state.page} of {total_pages}</div>",
+                    unsafe_allow_html=True,
+                )
+            with nav3:
+                if st.button("Next", disabled=st.session_state.page >= total_pages, use_container_width=True):
+                    st.session_state.page += 1
+                    st.rerun()
 
 # ------------------------------------------------------------
 # TAB — COMPARE
@@ -551,7 +659,10 @@ with tab_browse:
 with tab_compare:
     st.subheader("Side-by-side comparison")
     if not st.session_state.compare_list:
-        st.info("Add up to 3 PGs to compare using the 'Compare' button in 'Browse PGs'.")
+        st.markdown(
+            '<div class="empty-state">Add up to 3 PGs to compare using the "Compare" button in "Browse PGs".</div>',
+            unsafe_allow_html=True,
+        )
     else:
         compare_df = pg_database[pg_database["PG Name"].isin(st.session_state.compare_list)]
         display_cols = [
@@ -569,7 +680,7 @@ with tab_compare:
 with tab_map:
     st.subheader("Where these PGs are, roughly")
     if filtered_df.empty:
-        st.info("No listings to show on the map — adjust your filters.")
+        st.markdown('<div class="empty-state">No listings to show on the map — adjust your filters.</div>', unsafe_allow_html=True)
     else:
         st.map(filtered_df.rename(columns={"Lat": "lat", "Lon": "lon"})[["lat", "lon"]], size=40)
         st.caption("Pin locations are approximate and for general orientation only.")
@@ -579,10 +690,11 @@ with tab_map:
 # ------------------------------------------------------------
 with tab_insights:
     st.subheader("How the rent model works")
-    st.write(
-        "The Rent Estimator is powered by a Random Forest model trained on 260 simulated PG "
-        "profiles. This tab shows how well it performs and what it weighs most heavily — kept "
-        "separate from the estimator itself so that tab stays focused on just getting a number."
+    st.markdown(
+        '<p class="section-note">The Rent Estimator is powered by a Random Forest model trained on '
+        '260 simulated PG profiles. This tab shows how well it performs and what it weighs most heavily '
+        '— kept separate from the estimator itself so that tab stays focused on just getting a number.</p>',
+        unsafe_allow_html=True,
     )
 
     ic1, ic2 = st.columns(2)
@@ -622,7 +734,11 @@ with tab_fav:
     st.subheader("Your saved PGs")
     fav_df = pg_database[pg_database["PG Name"].isin(st.session_state.favourites)]
     if fav_df.empty:
-        st.info("You haven't saved any PGs yet. Go to 'Browse PGs' and tap Save on a listing.")
+        st.markdown(
+            '<div class="empty-state">You haven\'t saved any PGs yet.<br>'
+            'Go to "Browse PGs" and tap Save on a listing.</div>',
+            unsafe_allow_html=True,
+        )
     else:
         st.dataframe(
             fav_df.drop(columns=["Lat", "Lon", "Sharing Options"]),
@@ -646,8 +762,8 @@ with tab_faq:
          "purposes, not live inventory."),
         ("Where does the rent model's training data come from?",
          "It's simulated, not scraped from any real source — see the 'Model Insights' tab for details."),
-        ("Is the campus photo real?", "Yes — it's the photo you provided of Keshav Mahavidyalaya, embedded "
-         "directly in this file so it displays without needing a separate image file."),
+        ("Is the campus photo real?", "Yes — it's a real photo of Keshav Mahavidyalaya, loaded from the "
+         "'campus.jpg' file kept alongside this script."),
     ]
     for q, a in faqs:
         with st.expander(q):
